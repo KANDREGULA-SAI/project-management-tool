@@ -13,3 +13,56 @@ If you did not use AI at all, say so here, and describe your process instead.
 ### What you got
 
 ### What you corrected
+
+### <What I am trying to achieve>
+Understand what the project requirements are asking for.
+
+### Prompt
+I received requirements for a project management application. Explain the scenario and requirements clearly before I start development.
+
+### Outcome
+I broke the project into the main required features and planned the development in phases.
+
+### <What I am trying to achieve>
+Choose a technology stack suitable for the application.
+
+### Prompt
+I want to use VS Code for project execution. For the backend, is Python and Django a good choice?
+
+### Outcome
+I decided to use:
+
+React + TypeScript + Vite
+Django + Django REST Framework
+PostgreSQL
+
+I chose this stack because the project has authentication, roles, relational data, and server-side business rules.
+
+### <What I am trying to achieve>
+Create a public repository and establish an incremental Git workflow.
+
+### Prompt
+Give me step-by-step instructions to create a project repository, add the required documentation, and make meaningful Git commits
+
+### Outcome
+I created the public repository and made the first commit before starting application development.
+
+### <What I am trying to achieve>
+Frontend setup
+
+### Prompt
+Next, we should start with creating the React frontend step by step. Give step-by-step instructions for this.
+
+### Outcome
+I created the frontend using React, TypeScript, and Vite. I ran the development server and verified that the default application was working.
+
+### <What I am trying to achieve>
+Backend setup
+
+### Prompt
+Give step-by-step instructions to create a Django backend.
+
+### Outcome
+
+I created a Django backend with a Python virtual environment and installed Django and Django REST Framework.
+I created a simple API app and added a health endpoint to verify that the backend was running.
