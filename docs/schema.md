@@ -3,8 +3,20 @@
 Answer each of these, in your own words.
 
 - Table by table: what columns and types does each one have?
+The application currently uses a custom Django User model.
 
-The exact columns and data types will be added when the Django models are created.
+| Column | Type | Notes |
+|---|---|---|
+| id | Integer | Primary key |
+| username | String | Django username field |
+| email | Email/String | Unique and used for login |
+| password | String | Stored as a hashed password |
+| first_name | String | Optional |
+| last_name | String | Optional |
+| role | String | Either `MANAGER` or `MEMBER` |
+| is_active | Boolean | Django account status |
+| is_staff | Boolean | Django admin access |
+
 
 
 - Which relationships are one-to-many, and which are many-to-many?
@@ -85,7 +97,12 @@ The exact representation will be finalized during implementation.
 
 - Which constraints are enforced by the database, and which by application code — and why did you draw the line there?
 
-The database will handle basic constraints such as primary keys, foreign keys, and unique values. More complex rules, such as task status transitions, will be handled in Django.
+Currently enforced by the database:
+- User email must be unique.
+
+Currently enforced by Django/application logic:
+- User roles are limited to Manager and Member choices.
+- Authentication uses Django's password hashing and authentication system
 
 
 - What did you deliberately denormalise?

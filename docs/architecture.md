@@ -19,3 +19,7 @@ PostgreSQL Database
 The React frontend will communicate with the Django backend using REST APIs. The backend will handle authentication, permissions, and business rules, while PostgreSQL will store the application data.
 
 The frontend will run in the browser. The backend and database will be deployed separately.
+
+Authentication: JWT
+Development database: SQLite
+Planned production database: PostgreSQL

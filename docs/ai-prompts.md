@@ -66,3 +66,27 @@ Give step-by-step instructions to create a Django backend.
 
 I created a Django backend with a Python virtual environment and installed Django and Django REST Framework.
 I created a simple API app and added a health endpoint to verify that the backend was running.
+
+### <What I am trying to achieve>
+Create a custom Django User model with Manager and Member roles.
+
+### Prompts used
+How do I create a custom User model in Django using email for login?
+How do I add Manager and Member roles to the User model?
+How do I configure AUTH_USER_MODEL?
+How do I create and apply migrations for a custom User model?
+
+## Issue encountered
+After creating the custom User model, Django returned:
+no such table: accounts_user
+
+## What I changed
+I checked the migration state, reset the local development database and recreated the accounts migration. After running migrations again, the accounts_user table was created successfully.
+
+### <What I am trying to achieve>
+Add authentication APIs for login and retrieving the current user.
+
+### Prompts used
+How do I implement JWT authentication in Django REST Framework?
+How do I create login, token refresh and current user endpoints?
+How do I test Django APIs using Thunder Client in VS Code?

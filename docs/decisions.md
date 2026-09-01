@@ -36,32 +36,16 @@ below, not necessarily the last one; add a **Later reversed:** line to whichever
 - **Why:**
 
 
-## Decision 1
+## Decision 1: Use JWT for authentication
 
-# Backend: Django REST Framework
+### Chosen
+JWT authentication using `djangorestframework-simplejwt`.
 
-I chose Django and Django REST Framework for the backend. This project has authentication, roles, many database relationships, and server-side rules, so Django fits well.
+### Rejected
+Session-based authentication.
 
-## Decision 2
+### Why
+The frontend and backend are separate applications, so JWT is easier to use for API authentication between React and Django.
 
-# Frontend: React + TypeScript + Vite
-
-I chose React because the project needs multiple interactive pages such as dashboard, projects, tasks, and alerts.
-
-I am using TypeScript for better type checking and Vite for a simple and fast setup.
-
-## Decision 3
-
-# Database: PostgreSQL
-
-I chose PostgreSQL because this project has strongly related data such as users, projects, tasks, assignments, and dependencies.
-
-I considered SQLite for simplicity, but PostgreSQL is more suitable for the deployed multi-user application.
-
-## Decision 4
-
-# Separate frontend and backend
-
-I decided to keep React and Django as separate applications.
-
-This makes the responsibility clear: React handles the UI, while Django handles authentication, permissions, validation, and business rules.
+### Result
+The backend provides access and refresh tokens, and protected endpoints identify users using the access token.
