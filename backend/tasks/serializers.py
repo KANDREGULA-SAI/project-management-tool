@@ -1,0 +1,69 @@
+from rest_framework import serializers
+from .models import Task
+
+
+class TaskSerializer(serializers.ModelSerializer):
+    created_by_email = serializers.EmailField(
+        source="created_by.email",
+        read_only=True
+    )
+
+    class Meta:
+        model = Task
+        fields = [
+            "id",
+            "project",
+            "title",
+            "description",
+            "priority",
+            "status",
+            "previous_status",
+            "due_date",
+            "blocking_tasks",
+            "assignees",
+            "created_by",
+            "created_by_email",
+            "created_at",
+            "updated_at",
+        ]
+
+        read_only_fields = [
+            "id",
+            "created_by",
+            "created_by_email",
+            "status",
+            "previous_status",
+            "created_at",
+            "updated_at",
+        ]
+
+    def validate(self, attrs):
+        project = attrs.get("project")
+
+        if project is None and self.instance:
+            project = self.instance.project
+
+        assignees = attrs.get("assignees")
+
+        if assignees is not None:
+            project_member_ids = set(
+                project.members.values_list("id", flat=True)
+            )
+
+            invalid_users = [
+                user.email
+                for user in assignees
+                if user.id not in project_member_ids
+            ]
+
+            if invalid_users:
+                raise serializers.ValidationError(
+                    {
+                        "assignees": (
+                            "All assignees must be members "
+                            "of the task's project."
+                        )
+                    }
+                )
+
+        return attrs
