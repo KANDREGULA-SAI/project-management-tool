@@ -1,3 +1,5 @@
+from tasks.models import TaskHistory
+
 from django.tasks import task
 
 from accounts.models import User
@@ -179,7 +181,16 @@ class RemoveProjectMemberView(APIView):
             )
         
         for task in project.tasks.all():
-            task.assignees.remove(user)
+            if task.assignees.filter(pk=user.id).exists():
+                task.assignees.remove(user)
+                TaskHistory.objects.create(
+                    task=task,
+                    actor=request.user,
+                    action=TaskHistory.Action.UNASSIGNED,
+                    field="assignees",
+                    old_value=str(user_id),
+                )
+
 
         project.members.remove(user)
 

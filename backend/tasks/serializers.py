@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Task
+from .models import Task, TaskHistory
 
 
 class TaskSerializer(serializers.ModelSerializer):
@@ -67,3 +67,25 @@ class TaskSerializer(serializers.ModelSerializer):
                 )
 
         return attrs
+
+class TaskHistorySerializer(serializers.ModelSerializer):
+    actor_email = serializers.EmailField(
+        source="actor.email",
+        read_only=True,
+    )
+
+    class Meta:
+        model = TaskHistory
+        fields = [
+            "id",
+            "task",
+            "actor",
+            "actor_email",
+            "action",
+            "field",
+            "old_value",
+            "new_value",
+            "comment",
+            "created_at",
+        ]
+        read_only_fields = fields

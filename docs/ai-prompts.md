@@ -133,3 +133,15 @@ Reuse the existing server-side task search and filtering logic for CSV export.
 ### Changes/Fixes
 Bulk status changes reuse the same lifecycle validation rules.
 Search filtering was extracted into reusable logic for both search and CSV export.
+
+
+## Task History and Comments
+
+### Prompt
+Implement an immutable task history timeline recording task creation, field changes, assignments/unassignments and comments. Add APIs to view task history and add comments.
+
+### What you got
+Created TaskHistory model, history serializer, history API, comments API, and automatic history entries for task changes and assignments.
+
+### What you corrected
+Made history append-only by preventing update/delete operations and added history records for automatic unassignment when a project member is removed.

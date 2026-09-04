@@ -75,3 +75,48 @@ class Task(models.Model):
 
     def __str__(self):
         return self.title
+
+class TaskHistory(models.Model):
+    class Action(models.TextChoices):
+        CREATED = "CREATED", "Created"
+        UPDATED = "UPDATED", "Updated"
+        ASSIGNED = "ASSIGNED", "Assigned"
+        UNASSIGNED = "UNASSIGNED", "Unassigned"
+        COMMENTED = "COMMENTED", "Commented"
+
+    task = models.ForeignKey(
+        Task,
+        on_delete=models.CASCADE,
+        related_name="history",
+    )
+    actor = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="task_history",
+    )
+    action = models.CharField(
+        max_length=20,
+        choices=Action.choices,
+    )
+    field = models.CharField(
+        max_length=50,
+        blank=True,
+    )
+    old_value = models.TextField(
+        blank=True,
+    )
+    new_value = models.TextField(
+        blank=True,
+    )
+    comment = models.TextField(
+        blank=True,
+    )
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+    )
+
+    class Meta:
+        ordering = ["created_at"]
+
+    def __str__(self):
+        return f"{self.task_id} - {self.action}"

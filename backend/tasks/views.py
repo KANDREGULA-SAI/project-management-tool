@@ -1,5 +1,6 @@
 import csv
 from django.http import HttpResponse
+from django.tasks import task
 from .filters import get_task_queryset
 from django.db.models import Q
 from django.utils import timezone
@@ -9,8 +10,8 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.exceptions import PermissionDenied
 
-from .models import Task
-from .serializers import TaskSerializer
+from .models import Task, TaskHistory
+from .serializers import TaskSerializer,TaskHistorySerializer
 from .pagination import TaskPagination
 
 
@@ -33,7 +34,13 @@ class TaskListCreateView(generics.ListCreateAPIView):
         project = serializer.validated_data["project"]
 
         if user.role == "MANAGER":
-            serializer.save(created_by=user)
+            task = serializer.save(created_by=user)
+
+            TaskHistory.objects.create(
+                task=task,
+                actor=user,
+                action=TaskHistory.Action.CREATED,
+            )
             return
 
         if not project.members.filter(id=user.id).exists():
@@ -41,7 +48,13 @@ class TaskListCreateView(generics.ListCreateAPIView):
                 "You can only create tasks in projects you belong to."
             )
 
-        serializer.save(created_by=user)
+        task = serializer.save(created_by=user)
+
+        TaskHistory.objects.create(
+            task=task,
+            actor=user,
+            action=TaskHistory.Action.CREATED,
+        )
 
 
 class TaskDetailView(generics.RetrieveUpdateDestroyAPIView):
@@ -57,6 +70,67 @@ class TaskDetailView(generics.RetrieveUpdateDestroyAPIView):
         return Task.objects.filter(
             project__members=user
         ).distinct()
+
+    def perform_update(self, serializer):
+        task = self.get_object()
+
+        old_values = {
+            "project": task.project_id,
+            "title": task.title,
+            "description": task.description,
+            "priority": task.priority,
+            "due_date": task.due_date,
+            "assignees": set(
+                task.assignees.values_list("id", flat=True)
+            ),
+        }
+
+        updated_task = serializer.save()
+
+        fields_to_check = [
+            "project",
+            "title",
+            "description",
+            "priority",
+            "due_date",
+        ]
+
+        for field in fields_to_check:
+            old_value = old_values[field]
+            new_value = getattr(updated_task, field)
+
+            if old_value != new_value:
+                TaskHistory.objects.create(
+                    task=updated_task,
+                    actor=self.request.user,
+                    action=TaskHistory.Action.UPDATED,
+                    field=field,
+                    old_value=str(old_value),
+                    new_value=str(new_value),
+                )
+
+        old_assignees = old_values["assignees"]
+        new_assignees = set(
+            updated_task.assignees.values_list("id", flat=True)
+        )
+
+        for user_id in new_assignees - old_assignees:
+            TaskHistory.objects.create(
+                task=updated_task,
+                actor=self.request.user,
+                action=TaskHistory.Action.ASSIGNED,
+                field="assignees",
+                new_value=str(user_id),
+            )
+
+        for user_id in old_assignees - new_assignees:
+            TaskHistory.objects.create(
+                task=updated_task,
+                actor=self.request.user,
+                action=TaskHistory.Action.UNASSIGNED,
+                field="assignees",
+                old_value=str(user_id),
+            )
 
     def perform_destroy(self, instance):
         if self.request.user.role != "MANAGER":
@@ -497,3 +571,87 @@ class TaskExportView(generics.GenericAPIView):
             ])
 
         return response
+
+class TaskCommentView(generics.GenericAPIView):
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+
+        if user.role == "MANAGER":
+            return Task.objects.all()
+
+        return Task.objects.filter(
+            project__members=user
+        ).distinct()
+
+    def post(self, request, pk):
+        task = self.get_queryset().filter(pk=pk).first()
+
+        if task is None:
+            return Response(
+                {"detail": "Task not found."},
+                status=404,
+            )
+
+        comment = request.data.get("comment")
+
+        if not comment:
+            return Response(
+                {"detail": "comment is required."},
+                status=400,
+            )
+
+        history = TaskHistory.objects.create(
+            task=task,
+            actor=request.user,
+            action=TaskHistory.Action.COMMENTED,
+            comment=comment,
+        )
+
+        return Response(
+            TaskHistorySerializer(history).data,
+            status=201,
+        )
+
+class TaskHistoryView(generics.ListAPIView):
+    serializer_class = TaskHistorySerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+
+        if user.role == "MANAGER":
+            return TaskHistory.objects.filter(
+                task__project__is_archived=False
+            ).select_related(
+                "actor",
+                "task",
+            )
+
+        return TaskHistory.objects.filter(
+            task__project__members=user,
+            task__project__is_archived=False,
+        ).select_related(
+            "actor",
+            "task",
+        ).distinct()
+
+    def get(self, request, pk):
+        queryset = self.get_queryset().filter(task_id=pk)
+
+        if not queryset.exists():
+            # Check whether task exists but user has no access.
+            if not Task.objects.filter(pk=pk).exists():
+                return Response(
+                    {"detail": "Task not found."},
+                    status=404,
+                )
+
+            return Response(
+                {"detail": "Task not found."},
+                status=404,
+            )
+
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
