@@ -145,3 +145,14 @@ Created TaskHistory model, history serializer, history API, comments API, and au
 
 ### What you corrected
 Made history append-only by preventing update/delete operations and added history records for automatic unassignment when a project member is removed.
+
+## Overdue Alerts
+
+### Prompt
+Implement overdue alerts for unfinished assigned tasks. Allow users to dismiss alerts and make dismissed alerts reappear when the task due date changes.
+
+### What you got
+Created an alert model, alerts API, dismissal API and due-date reset behavior.
+
+### What you corrected
+Used on-demand alert creation instead of adding a background worker to keep the implementation simple.
