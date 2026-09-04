@@ -120,3 +120,29 @@ class TaskHistory(models.Model):
 
     def __str__(self):
         return f"{self.task_id} - {self.action}"
+
+class TaskAlert(models.Model):
+    task = models.ForeignKey(
+        Task,
+        on_delete=models.CASCADE,
+        related_name="alerts",
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="task_alerts",
+    )
+    dismissed = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    dismissed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["task", "user"],
+                name="unique_task_alert_user",
+            )
+        ]
+
+    def __str__(self):
+        return f"Alert for task {self.task_id}"

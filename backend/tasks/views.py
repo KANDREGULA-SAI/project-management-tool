@@ -5,13 +5,15 @@ from .filters import get_task_queryset
 from django.db.models import Q
 from django.utils import timezone
 
+
+
 from rest_framework import generics
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.exceptions import PermissionDenied
 
-from .models import Task, TaskHistory
-from .serializers import TaskSerializer,TaskHistorySerializer
+from .models import Task, TaskHistory, TaskAlert
+from .serializers import TaskAlertSerializer, TaskHistorySerializer, TaskSerializer
 from .pagination import TaskPagination
 
 
@@ -86,6 +88,13 @@ class TaskDetailView(generics.RetrieveUpdateDestroyAPIView):
         }
 
         updated_task = serializer.save()
+        if "due_date" in self.request.data:
+            TaskAlert.objects.filter(
+                task=updated_task
+            ).update(
+                dismissed=False,
+                dismissed_at=None,
+            )
 
         fields_to_check = [
             "project",
@@ -655,3 +664,58 @@ class TaskHistoryView(generics.ListAPIView):
 
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
+
+class TaskAlertView(generics.ListAPIView):
+    serializer_class = TaskAlertSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        user = self.request.user
+        now = timezone.now()
+
+        overdue_tasks = Task.objects.filter(
+            assignees=user,
+            project__members=user,
+            project__is_archived=False,
+            due_date__lt=now,
+        ).exclude(
+            status=Task.Status.DONE
+        )
+
+        for task in overdue_tasks:
+            TaskAlert.objects.get_or_create(
+                task=task,
+                user=user,
+            )
+
+        return TaskAlert.objects.filter(
+            user=user,
+            dismissed=False,
+            task__project__is_archived=False,
+            task__due_date__lt=now,
+        ).exclude(
+            task__status=Task.Status.DONE
+        ).select_related("task")
+
+class TaskAlertDismissView(generics.GenericAPIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        alert = TaskAlert.objects.filter(
+            pk=pk,
+            user=request.user,
+        ).first()
+
+        if alert is None:
+            return Response(
+                {"detail": "Alert not found."},
+                status=404,
+            )
+
+        alert.dismissed = True
+        alert.dismissed_at = timezone.now()
+        alert.save()
+
+        return Response(
+            {"detail": "Alert dismissed."}
+        )

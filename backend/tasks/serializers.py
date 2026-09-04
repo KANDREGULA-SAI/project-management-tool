@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Task, TaskHistory
+from .models import Task, TaskHistory, TaskAlert
 
 
 class TaskSerializer(serializers.ModelSerializer):
@@ -87,5 +87,24 @@ class TaskHistorySerializer(serializers.ModelSerializer):
             "new_value",
             "comment",
             "created_at",
+        ]
+        read_only_fields = fields
+
+class TaskAlertSerializer(serializers.ModelSerializer):
+    task_title = serializers.CharField(
+        source="task.title",
+        read_only=True,
+    )
+
+    class Meta:
+        model = TaskAlert
+        fields = [
+            "id",
+            "task",
+            "task_title",
+            "user",
+            "dismissed",
+            "created_at",
+            "dismissed_at",
         ]
         read_only_fields = fields
