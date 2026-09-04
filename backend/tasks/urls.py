@@ -3,6 +3,8 @@ from .views import (
     TaskListCreateView,
     TaskSearchView,
     MyAssignedTasksView,
+    TaskBulkActionView,
+    TaskExportView,
     TaskDetailView,
     TaskTransitionView,
     
@@ -17,6 +19,8 @@ urlpatterns = [
         MyAssignedTasksView.as_view(),
         name="my-assigned-tasks",
     ),
+    path("bulk/", TaskBulkActionView.as_view(), name="task-bulk"),
+    path("export/", TaskExportView.as_view(), name="task-export"),
     path("<int:pk>/", TaskDetailView.as_view(), name="task-detail"),
     path(
         "<int:pk>/transition/",

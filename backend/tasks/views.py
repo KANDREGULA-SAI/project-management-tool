@@ -1,3 +1,6 @@
+import csv
+from django.http import HttpResponse
+from .filters import get_task_queryset
 from django.db.models import Q
 from django.utils import timezone
 
@@ -235,73 +238,262 @@ class TaskSearchView(generics.ListAPIView):
     pagination_class = TaskPagination
 
     def get_queryset(self):
-        user = self.request.user
+        return get_task_queryset(
+            self.request.user,
+            self.request.query_params,
+        )
 
-        # Only show tasks from projects the user can see.
-        if user.role == "MANAGER":
-            queryset = Task.objects.filter(
-                project__is_archived=False
-            )
-        else:
-            queryset = Task.objects.filter(
-                project__members=user,
-                project__is_archived=False,
-            ).distinct()
+class TaskBulkActionView(generics.GenericAPIView):
+    permission_classes = [IsAuthenticated]
 
-        params = self.request.query_params
+    def post(self, request):
+        task_ids = request.data.get("task_ids", [])
 
-        # Search title and description
-        search = params.get("search")
-        if search:
-            queryset = queryset.filter(
-                Q(title__icontains=search)
-                | Q(description__icontains=search)
+        if not task_ids:
+            return Response(
+                {"detail": "task_ids is required."},
+                status=400,
             )
 
-        # Project filter
-        project = params.get("project")
-        if project:
-            queryset = queryset.filter(project_id=project)
+        fields = [
+            field
+            for field in ["status", "assignee", "due_date"]
+            if field in request.data
+        ]
 
-        # Status filter
-        status = params.get("status")
-        if status:
-            queryset = queryset.filter(status=status)
-
-        # Assignee filter
-        assignee = params.get("assignee")
-        if assignee:
-            queryset = queryset.filter(assignees__id=assignee)
-
-        # Priority filter
-        priority = params.get("priority")
-        if priority:
-            queryset = queryset.filter(priority=priority)
-
-        # Overdue filter
-        overdue = params.get("overdue")
-        if overdue == "true":
-            queryset = queryset.filter(
-                due_date__lt=timezone.now()
-            ).exclude(
-                status=Task.Status.DONE
+        if len(fields) != 1:
+            return Response(
+                {
+                    "detail": (
+                        "Provide exactly one of: "
+                        "status, assignee, due_date."
+                    )
+                },
+                status=400,
             )
 
-        # Sorting
-        sort = params.get("sort", "-updated_at")
+        field = fields[0]
+        value = request.data.get(field)
 
-        allowed_sorts = {
-            "due_date": "due_date",
-            "-due_date": "-due_date",
-            "priority": "priority",
-            "-priority": "-priority",
-            "updated_at": "updated_at",
-            "-updated_at": "-updated_at",
-        }
+        results = []
 
-        if sort not in allowed_sorts:
-            sort = "-updated_at"
+        for task_id in task_ids:
+            try:
+                task = Task.objects.get(pk=task_id)
+            except Task.DoesNotExist:
+                results.append({
+                    "task_id": task_id,
+                    "success": False,
+                    "reason": "Task not found.",
+                })
+                continue
 
-        queryset = queryset.order_by(allowed_sorts[sort])
+            # Access check
+            if request.user.role != "MANAGER":
+                if not task.project.members.filter(
+                    id=request.user.id
+                ).exists():
+                    results.append({
+                        "task_id": task_id,
+                        "success": False,
+                        "reason": "You do not have access to this task.",
+                    })
+                    continue
 
-        return queryset
+            if task.project.is_archived:
+                results.append({
+                    "task_id": task_id,
+                    "success": False,
+                    "reason": "Task belongs to an archived project.",
+                })
+                continue
+
+            # -------------------------
+            # STATUS
+            # -------------------------
+            if field == "status":
+                if value not in {
+                    Task.Status.BACKLOG,
+                    Task.Status.IN_PROGRESS,
+                    Task.Status.IN_REVIEW,
+                    Task.Status.BLOCKED,
+                    Task.Status.DONE,
+                }:
+                    results.append({
+                        "task_id": task_id,
+                        "success": False,
+                        "reason": "Invalid status.",
+                    })
+                    continue
+
+                old_status = task.status
+
+                if value == old_status:
+                    results.append({
+                        "task_id": task_id,
+                        "success": False,
+                        "reason": "Task is already in this status.",
+                    })
+                    continue
+
+                if value == Task.Status.BLOCKED:
+                    if old_status not in [
+                        Task.Status.IN_PROGRESS,
+                        Task.Status.IN_REVIEW,
+                    ]:
+                        results.append({
+                            "task_id": task_id,
+                            "success": False,
+                            "reason": (
+                                "A task can only be blocked from "
+                                "In Progress or In Review."
+                            ),
+                        })
+                        continue
+
+                    task.previous_status = old_status
+                    task.status = Task.Status.BLOCKED
+                    task.save()
+
+                elif old_status == Task.Status.BLOCKED:
+                    if value != task.previous_status:
+                        results.append({
+                            "task_id": task_id,
+                            "success": False,
+                            "reason": (
+                                "A blocked task can only return "
+                                "to its previous status."
+                            ),
+                        })
+                        continue
+
+                    task.status = value
+                    task.previous_status = None
+                    task.save()
+
+                else:
+                    if value == Task.Status.DONE:
+                        unfinished_blockers = (
+                            task.blocking_tasks.exclude(
+                                status=Task.Status.DONE
+                            )
+                        )
+
+                        if unfinished_blockers.exists():
+                            results.append({
+                                "task_id": task_id,
+                                "success": False,
+                                "reason": (
+                                    "Task cannot be marked as Done "
+                                    "because one or more blocking "
+                                    "tasks are unfinished."
+                                ),
+                            })
+                            continue
+
+                    allowed_transitions = {
+                        Task.Status.BACKLOG: [
+                            Task.Status.IN_PROGRESS,
+                        ],
+                        Task.Status.IN_PROGRESS: [
+                            Task.Status.IN_REVIEW,
+                            Task.Status.BLOCKED,
+                        ],
+                        Task.Status.IN_REVIEW: [
+                            Task.Status.DONE,
+                            Task.Status.BLOCKED,
+                        ],
+                        Task.Status.DONE: [
+                            Task.Status.BACKLOG,
+                        ],
+                    }
+
+                    if value not in allowed_transitions.get(
+                        old_status, []
+                    ):
+                        results.append({
+                            "task_id": task_id,
+                            "success": False,
+                            "reason": (
+                                f"Cannot move task from "
+                                f"{old_status} to {value}."
+                            ),
+                        })
+                        continue
+
+                    task.status = value
+                    task.save()
+
+            # -------------------------
+            # ASSIGNEE
+            # -------------------------
+            elif field == "assignee":
+                try:
+                    user = task.project.members.get(pk=value)
+                except Exception:
+                    results.append({
+                        "task_id": task_id,
+                        "success": False,
+                        "reason": (
+                            "Assignee must be a member "
+                            "of the project."
+                        ),
+                    })
+                    continue
+
+                task.assignees.add(user)
+
+            # -------------------------
+            # DUE DATE
+            # -------------------------
+            elif field == "due_date":
+                task.due_date = value
+                task.save()
+
+            results.append({
+                "task_id": task_id,
+                "success": True,
+            })
+
+        return Response({"results": results})
+
+class TaskExportView(generics.GenericAPIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        queryset = get_task_queryset(
+            request.user,
+            request.query_params,
+        )
+
+        response = HttpResponse(
+            content_type="text/csv"
+        )
+        response["Content-Disposition"] = (
+            'attachment; filename="tasks.csv"'
+        )
+
+        writer = csv.writer(response)
+
+        writer.writerow([
+            "id",
+            "project",
+            "title",
+            "description",
+            "priority",
+            "status",
+            "due_date",
+        ])
+
+        for task in queryset:
+            writer.writerow([
+                task.id,
+                task.project_id,
+                task.title,
+                task.description,
+                task.priority,
+                task.status,
+                task.due_date,
+            ])
+
+        return response

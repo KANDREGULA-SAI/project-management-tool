@@ -90,3 +90,46 @@ Add authentication APIs for login and retrieving the current user.
 How do I implement JWT authentication in Django REST Framework?
 How do I create login, token refresh and current user endpoints?
 How do I test Django APIs using Thunder Client in VS Code?
+
+### <What I am trying to achieve>
+Task Management and Lifecycle
+
+### Prompts Used
+Implement the Task model with project, title, description, priority, status, due date, blocking tasks and creator.
+Implement task CRUD APIs with Manager/Member permissions and server-side project access control.
+Implement the task lifecycle: Backlog → In Progress → In Review → Done, including Blocked state and valid transitions.
+Prevent status changes through normal PATCH and enforce lifecycle rules through a transition endpoint.
+Prevent tasks from being marked Done when blocking tasks are unfinished.
+Add multiple task assignees and allow assignment only to project members.
+Automatically unassign users when they are removed from a project.
+Add an API to view all tasks assigned to the logged-in user across their projects.
+
+### Changes/Fixes
+Fixed missing task detail/transition routes that initially caused 404 errors.
+Made task status read-only in normal PATCH requests.
+Added `previous_status` to correctly restore blocked tasks.
+
+### <What I am trying to achieve>
+Global Task Finding
+
+### Prompt
+Global task search, filters, sorting, pagination and total count. Give step by step instructions to complete this task"
+
+### Result
+Implemented a server-side task search endpoint with text search, project/status/assignee/priority/overdue filters, sorting, pagination and total count.
+
+### Verification
+Tested the endpoint using Thunder Client with JWT authentication.
+
+
+### <What I am trying to achieve>
+Bulk Actions and CSV Export
+
+### Prompts Used
+Implement bulk task actions for status, assignee and due date with per-task success or rejection reasons.
+Add CSV export for the currently filtered task list.
+Reuse the existing server-side task search and filtering logic for CSV export.
+
+### Changes/Fixes
+Bulk status changes reuse the same lifecycle validation rules.
+Search filtering was extracted into reusable logic for both search and CSV export.

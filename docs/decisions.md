@@ -49,3 +49,23 @@ The frontend and backend are separate applications, so JWT is easier to use for 
 
 ### Result
 The backend provides access and refresh tokens, and protected endpoints identify users using the access token.
+
+## Decision 2
+- **Chose:** Dedicated transition endpoint for task status changes.
+- **Rejected:** Changing status through normal PATCH.
+- **Why:** Prevents bypassing lifecycle validation.
+
+## Decision 3
+- **Chose:** Store `previous_status` for blocked tasks.
+- **Rejected:** Returning blocked tasks to a fixed status.
+- **Why:** Allows a blocked task to return to its previous state.
+
+## Decision 4
+- **Chose:** Server-side validation of project membership for assignees.
+- **Rejected:** Allowing any user to be assigned.
+- **Why:** Only project members can be assigned to project tasks.
+
+## Decision 5
+- **Chose:** Reuse server-side filtering for search and CSV export.
+- **Rejected:** Maintaining separate filtering logic.
+- **Why:** Keeps results consistent and avoids duplicated logic.
