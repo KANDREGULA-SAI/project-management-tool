@@ -1,3 +1,6 @@
+from django.db.models import Q
+from django.utils import timezone
+
 from rest_framework import generics
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
@@ -5,12 +8,13 @@ from rest_framework.exceptions import PermissionDenied
 
 from .models import Task
 from .serializers import TaskSerializer
+from .pagination import TaskPagination
 
 
 class TaskListCreateView(generics.ListCreateAPIView):
     serializer_class = TaskSerializer
     permission_classes = [IsAuthenticated]
-
+    
     def get_queryset(self):
         user = self.request.user
 
@@ -224,3 +228,80 @@ class MyAssignedTasksView(generics.ListAPIView):
             project__members=self.request.user,
             project__is_archived=False,
         ).distinct()
+
+class TaskSearchView(generics.ListAPIView):
+    serializer_class = TaskSerializer
+    permission_classes = [IsAuthenticated]
+    pagination_class = TaskPagination
+
+    def get_queryset(self):
+        user = self.request.user
+
+        # Only show tasks from projects the user can see.
+        if user.role == "MANAGER":
+            queryset = Task.objects.filter(
+                project__is_archived=False
+            )
+        else:
+            queryset = Task.objects.filter(
+                project__members=user,
+                project__is_archived=False,
+            ).distinct()
+
+        params = self.request.query_params
+
+        # Search title and description
+        search = params.get("search")
+        if search:
+            queryset = queryset.filter(
+                Q(title__icontains=search)
+                | Q(description__icontains=search)
+            )
+
+        # Project filter
+        project = params.get("project")
+        if project:
+            queryset = queryset.filter(project_id=project)
+
+        # Status filter
+        status = params.get("status")
+        if status:
+            queryset = queryset.filter(status=status)
+
+        # Assignee filter
+        assignee = params.get("assignee")
+        if assignee:
+            queryset = queryset.filter(assignees__id=assignee)
+
+        # Priority filter
+        priority = params.get("priority")
+        if priority:
+            queryset = queryset.filter(priority=priority)
+
+        # Overdue filter
+        overdue = params.get("overdue")
+        if overdue == "true":
+            queryset = queryset.filter(
+                due_date__lt=timezone.now()
+            ).exclude(
+                status=Task.Status.DONE
+            )
+
+        # Sorting
+        sort = params.get("sort", "-updated_at")
+
+        allowed_sorts = {
+            "due_date": "due_date",
+            "-due_date": "-due_date",
+            "priority": "priority",
+            "-priority": "-priority",
+            "updated_at": "updated_at",
+            "-updated_at": "-updated_at",
+        }
+
+        if sort not in allowed_sorts:
+            sort = "-updated_at"
+
+        queryset = queryset.order_by(allowed_sorts[sort])
+
+        return queryset
