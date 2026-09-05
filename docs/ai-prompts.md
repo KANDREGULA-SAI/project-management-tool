@@ -156,3 +156,14 @@ Created an alert model, alerts API, dismissal API and due-date reset behavior.
 
 ### What you corrected
 Used on-demand alert creation instead of adding a background worker to keep the implementation simple.
+
+## Dashboard
+
+### Prompt
+Implement a task dashboard showing open, overdue, due this week, completed this week, status breakdown, assignee breakdown and completions over the last 8 weeks.
+
+### What you got
+Created a single dashboard API returning all required metrics.
+
+### What you corrected
+Used TaskHistory status changes to calculate completion metrics more accurately instead of relying only on task updated_at.

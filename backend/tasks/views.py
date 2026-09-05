@@ -1,11 +1,12 @@
+from collections import Counter
+from datetime import timedelta
+
 import csv
 from django.http import HttpResponse
 from django.tasks import task
 from .filters import get_task_queryset
-from django.db.models import Q
+from django.db.models import Q, Count
 from django.utils import timezone
-
-
 
 from rest_framework import generics
 from rest_framework.response import Response
@@ -719,3 +720,126 @@ class TaskAlertDismissView(generics.GenericAPIView):
         return Response(
             {"detail": "Alert dismissed."}
         )
+
+class TaskDashboardView(generics.GenericAPIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+
+        if user.role == "MANAGER":
+            queryset = Task.objects.filter(
+                project__is_archived=False
+            )
+        else:
+            queryset = Task.objects.filter(
+                project__members=user,
+                project__is_archived=False,
+            ).distinct()
+
+        now = timezone.now()
+
+        # Start of current week (Monday)
+        week_start = now - timedelta(days=now.weekday())
+        week_start = week_start.replace(
+            hour=0,
+            minute=0,
+            second=0,
+            microsecond=0,
+        )
+
+        week_end = week_start + timedelta(days=7)
+
+        # Basic counts
+        open_count = queryset.exclude(
+            status=Task.Status.DONE
+        ).count()
+
+        overdue_count = queryset.filter(
+            due_date__lt=now
+        ).exclude(
+            status=Task.Status.DONE
+        ).count()
+
+        due_this_week_count = queryset.filter(
+            due_date__gte=now,
+            due_date__lt=week_end,
+        ).exclude(
+            status=Task.Status.DONE
+        ).count()
+
+        completed_this_week_count = TaskHistory.objects.filter(
+            task__in=queryset,
+            action=TaskHistory.Action.UPDATED,
+            field="status",
+            new_value=Task.Status.DONE,
+            created_at__gte=week_start,
+            created_at__lt=week_end,
+        ).count()
+
+        # Status breakdown
+        status_data = queryset.values(
+            "status"
+        ).annotate(
+            count=Count("id")
+        )
+
+        status_breakdown = {
+            item["status"]: item["count"]
+            for item in status_data
+        }
+
+        # Assignee breakdown
+        assignee_data = (
+            queryset
+            .values(
+                "assignees__id",
+                "assignees__email",
+            )
+            .annotate(
+                count=Count("id", distinct=True)
+            )
+        )
+
+        assignee_breakdown = [
+            {
+                "user_id": item["assignees__id"],
+                "email": item["assignees__email"],
+                "count": item["count"],
+            }
+            for item in assignee_data
+            if item["assignees__id"] is not None
+        ]
+
+        # Completions over last 8 weeks
+        completions_last_8_weeks = []
+
+        for weeks_ago in range(7, -1, -1):
+            start = week_start - timedelta(
+                weeks=weeks_ago
+            )
+            end = start + timedelta(days=7)
+
+            count = TaskHistory.objects.filter(
+                task__in=queryset,
+                action=TaskHistory.Action.UPDATED,
+                field="status",
+                new_value=Task.Status.DONE,
+                created_at__gte=start,
+                created_at__lt=end,
+            ).count()
+
+            completions_last_8_weeks.append({
+                "week_start": start.date().isoformat(),
+                "count": count,
+            })
+
+        return Response({
+            "open": open_count,
+            "overdue": overdue_count,
+            "due_this_week": due_this_week_count,
+            "completed_this_week": completed_this_week_count,
+            "status_breakdown": status_breakdown,
+            "assignee_breakdown": assignee_breakdown,
+            "completions_last_8_weeks": completions_last_8_weeks,
+        })

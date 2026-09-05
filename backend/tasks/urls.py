@@ -11,6 +11,7 @@ from .views import (
     TaskHistoryView,
     TaskAlertView,
     TaskAlertDismissView,
+    TaskDashboardView,
     
 )
 
@@ -44,6 +45,11 @@ urlpatterns = [
         "alerts/<int:pk>/dismiss/",
         TaskAlertDismissView.as_view(),
         name="task-alert-dismiss",
+    ),
+    path(
+        "dashboard/",
+        TaskDashboardView.as_view(),
+        name="task-dashboard",
     ),
     path("<int:pk>/", TaskDetailView.as_view(), name="task-detail"),
     path(
