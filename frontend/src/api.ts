@@ -1,4 +1,4 @@
-const API_URL = "http://127.0.0.1:8000/api";
+const API_URL = "https://project-management-api-nn35.onrender.com/api";
 
 export async function apiRequest(
   endpoint: string,
