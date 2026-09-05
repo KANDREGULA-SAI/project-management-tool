@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { apiRequest } from "../api";
-import type { Project } from "../types";
+import type { Project, Task } from "../types";
 
 type Props = {
   userRole: string;
@@ -10,6 +10,9 @@ export default function Projects({ userRole }: Props) {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [selectedProject, setSelectedProject] = useState<number | null>(null);
+  const [projectTasks, setProjectTasks] = useState<Task[]>([]);
+  const [tasksLoading, setTasksLoading] = useState(false);
 
   const [key, setKey] = useState("");
   const [name, setName] = useState("");
@@ -36,6 +39,33 @@ export default function Projects({ userRole }: Props) {
   useEffect(() => {
     loadProjects();
   }, []);
+
+  async function loadProjectTasks(projectId: number) {
+    setTasksLoading(true);
+    setError("");
+
+    try {
+        const data = await apiRequest(
+        `/tasks/search/?project=${projectId}&page_size=50`
+        );
+
+        setProjectTasks(data.results);
+        setSelectedProject(projectId);
+    } catch (err) {
+        setError(
+        err instanceof Error
+            ? err.message
+            : "Failed to load project tasks"
+        );
+    } finally {
+        setTasksLoading(false);
+    }
+  }
+
+  function hideProjectTasks() {
+    setSelectedProject(null);
+    setProjectTasks([]);
+    }
 
   async function createProject(
     event: React.FormEvent
@@ -153,44 +183,100 @@ export default function Projects({ userRole }: Props) {
         <div>
           {projects.map((project) => (
             <div
-              key={project.id}
-              className="project-card"
+                key={project.id}
+                className="project-card"
             >
-              <div>
+                <div>
                 <h3>
-                  {project.key} — {project.name}
+                    {project.key} — {project.name}
                 </h3>
 
                 <p>{project.description}</p>
 
                 <small>
-                  Owner: {project.owner_email}
+                    Owner: {project.owner_email}
                 </small>
-              </div>
 
-              {userRole === "MANAGER" && (
-                <div>
-                  {project.is_archived ? (
+                <div className="project-actions">
+                    {selectedProject === project.id ? (
                     <button
-                      onClick={() =>
-                        restoreProject(project.id)
-                      }
+                        type="button"
+                        onClick={hideProjectTasks}
                     >
-                      Restore
+                        Hide Tasks
                     </button>
-                  ) : (
+                    ) : (
                     <button
-                      onClick={() =>
-                        archiveProject(project.id)
-                      }
+                        type="button"
+                        onClick={() =>
+                        loadProjectTasks(project.id)
+                        }
                     >
-                      Archive
+                        View Tasks
                     </button>
-                  )}
+                    )}
                 </div>
-              )}
+                </div>
+
+                {userRole === "MANAGER" && (
+                <div>
+                    {project.is_archived ? (
+                    <button
+                        onClick={() =>
+                        restoreProject(project.id)
+                        }
+                    >
+                        Restore
+                    </button>
+                    ) : (
+                    <button
+                        onClick={() =>
+                        archiveProject(project.id)
+                        }
+                    >
+                        Archive
+                    </button>
+                    )}
+                </div>
+                )}
+
+                {selectedProject === project.id && (
+                <div className="project-tasks">
+                    <h4>Tasks</h4>
+
+                    {tasksLoading ? (
+                    <p>Loading tasks...</p>
+                    ) : projectTasks.length === 0 ? (
+                    <p>No tasks in this project.</p>
+                    ) : (
+                    <div className="project-task-list">
+                        {projectTasks.map((task) => (
+                        <div
+                            key={task.id}
+                            className="project-task"
+                        >
+                            <strong>{task.title}</strong>
+
+                            <span>
+                            {task.status} · {task.priority}
+                            </span>
+
+                            {task.due_date && (
+                            <small>
+                                Due:{" "}
+                                {new Date(
+                                task.due_date
+                                ).toLocaleDateString()}
+                            </small>
+                            )}
+                        </div>
+                        ))}
+                    </div>
+                    )}
+                </div>
+                )}
             </div>
-          ))}
+            ))}
         </div>
       )}
     </div>

@@ -17,7 +17,68 @@ The application currently uses a custom Django User model.
 | is_active | Boolean | Django account status |
 | is_staff | Boolean | Django admin access |
 
+## Projects
 
+| Column | Type | Notes |
+|---|---|---|
+| id | Integer | Primary key |
+| key | String | Unique short project key |
+| name | String | Project name |
+| description | Text | Optional project description |
+| owner | Foreign Key | Points to the user who owns the project |
+| members | Many-to-Many | Users who belong to the project |
+| is_archived | Boolean | Used to archive and restore projects |
+| created_at | DateTime | Creation time |
+| updated_at | DateTime | Last update time |
+
+A project has one owner, but can have many members.
+
+## Tasks
+
+| Column | Type | Notes |
+|---|---|---|
+| id | Integer | Primary key |
+| project | Foreign Key | Each task belongs to one project |
+| title | String | Task title |
+| description | Text | Task description |
+| priority | String | `LOW`, `MEDIUM` or `HIGH` |
+| status | String | Backlog, In Progress, In Review, Blocked or Done |
+| previous_status | String | Stores the status before a task becomes blocked |
+| due_date | DateTime | Optional due date |
+| blocking_tasks | Many-to-Many | Other tasks that block this task |
+| assignees | Many-to-Many | Users assigned to the task |
+| created_by | Foreign Key | User who created the task |
+| created_at | DateTime | Creation time |
+| updated_at | DateTime | Last update time |
+
+## Task History
+
+| Column | Type | Notes |
+|---|---|---|
+| id | Integer | Primary key |
+| task | Foreign Key | Task related to the history event |
+| actor | Foreign Key | User who made the change |
+| action | String | Created, Updated, Assigned, Unassigned or Commented |
+| field | String | Field that was changed |
+| old_value | Text | Previous value |
+| new_value | Text | New value |
+| comment | Text | Comment text when the event is a comment |
+| created_at | DateTime | Time of the event |
+
+History records are read-only and are used to keep an immutable timeline for each task.
+
+## Task Alerts
+
+| Column | Type | Notes |
+|---|---|---|
+| id | Integer | Primary key |
+| task | Foreign Key | Task that caused the alert |
+| user | Foreign Key | Assigned user who receives the alert |
+| dismissed | Boolean | Whether the user dismissed the alert |
+| created_at | DateTime | Alert creation time |
+| dismissed_at | DateTime | Time the alert was dismissed |
+
+There is a unique constraint on the combination of task and user so that the same task does not create duplicate alerts for the same user.
 
 - Which relationships are one-to-many, and which are many-to-many?
 
@@ -96,16 +157,24 @@ The exact representation will be finalized during implementation.
 
 
 - Which constraints are enforced by the database, and which by application code — and why did you draw the line there?
+The database currently handles rules such as:
 
-Currently enforced by the database:
 - User email must be unique.
+- Project key must be unique.
+- A task alert for the same task and user can only exist once.
+- Foreign key relationships are maintained by Django.
 
-Currently enforced by Django/application logic:
-- User roles are limited to Manager and Member choices.
-- Authentication uses Django's password hashing and authentication system
+
 
 
 - What did you deliberately denormalise?
+I did not deliberately denormalise the main task and project data.
+
+I kept users, projects, tasks, assignments, history and alerts as separate related records so the data stays consistent and easier to update.
+
+The actor_email and created_by_email values returned by the API are serializer fields rather than duplicated database columns.
+
+
 - What would break first if this had 100x the data?
 
 

@@ -167,3 +167,17 @@ Created a single dashboard API returning all required metrics.
 
 ### What you corrected
 Used TaskHistory status changes to calculate completion metrics more accurately instead of relying only on task updated_at.
+
+## Frontend API Integration
+
+### Prompt
+
+Connect the React frontend to the Django REST APIs using a reusable API helper. Add JWT authentication to protected requests and handle API errors properly.
+
+### What you got
+
+Created a reusable `apiRequest` function that adds the access token to requests and handles JSON responses and errors.
+
+### What you corrected
+
+Kept the API URL in one place so the individual React components do not need to repeat the backend URL.

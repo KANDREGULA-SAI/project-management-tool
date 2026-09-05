@@ -1,5 +1,8 @@
 import Projects from "./components/Projects";
 import Tasks from "./components/Tasks";
+import Alerts from "./components/Alerts";
+import Dashboard from "./components/Dashboard";
+import MyTasks from "./components/MyTasks";
 
 import { useEffect, useState } from "react";
 import { apiRequest } from "./api";
@@ -15,6 +18,7 @@ type View =
   | "dashboard"
   | "projects"
   | "tasks"
+  | "my-tasks"
   | "alerts";
 
 function App() {
@@ -24,6 +28,7 @@ function App() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [alertCount, setAlertCount] = useState(0);
 
   useEffect(() => {
     const token = localStorage.getItem("access_token");
@@ -39,6 +44,21 @@ function App() {
         localStorage.removeItem("refresh_token");
       });
   }, []);
+
+  useEffect(() => {
+    if (user) {
+      loadAlertCount();
+    }
+  }, [user]);
+
+  async function loadAlertCount() {
+    try {
+      const data = await apiRequest("/tasks/alerts/");
+      setAlertCount(data.length);
+    } catch {
+      setAlertCount(0);
+    }
+  }
 
   async function handleLogin(
     event: React.FormEvent
@@ -165,15 +185,20 @@ function App() {
             Tasks
           </button>
 
+          <button onClick={() => setView("my-tasks")}>
+            My Tasks
+          </button>
+
           <button onClick={() => setView("alerts")}>
             Alerts
+            {alertCount > 0 && (
+              <span className="alert-count">{alertCount}</span>
+            )}
           </button>
         </aside>
 
         <main className="content">
-          {view === "dashboard" && (
-            <h1>Dashboard</h1>
-          )}
+          {view === "dashboard" && <Dashboard />}
 
           {view === "projects" && (
             <Projects userRole={user.role} />
@@ -181,9 +206,9 @@ function App() {
 
           {view === "tasks" && <Tasks />}
 
-          {view === "alerts" && (
-            <h1>Alerts</h1>
-          )}
+          {view === "my-tasks" && <MyTasks />}
+
+          {view === "alerts" && <Alerts />}
         </main>
       </div>
     </div>

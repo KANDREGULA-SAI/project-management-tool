@@ -69,3 +69,18 @@ The backend provides access and refresh tokens, and protected endpoints identify
 - **Chose:** Reuse server-side filtering for search and CSV export.
 - **Rejected:** Maintaining separate filtering logic.
 - **Why:** Keeps results consistent and avoids duplicated logic.
+
+## Decision 6: Generate overdue alerts through the API
+
+- **Chose:** Generate missing overdue alerts when the alerts endpoint is requested.
+- **Rejected:** Adding a background worker or scheduled job.
+- **Why:** The API approach was simpler and was enough for the assignment without adding another service.
+
+## Decision 7: Start with a task list for the dashboard
+
+- **Chose:** Initially display the 8-week completion data as a simple list.
+- **Rejected:** Adding a chart immediately.
+- **Why:** I focused first on getting the required dashboard data and calculations working correctly.
+
+
+- **Later reversed:** The requirement specifically expects completions over the last 8 weeks to be shown as a chart, so the list will be replaced with a chart before final submission.
