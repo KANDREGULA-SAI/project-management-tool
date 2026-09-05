@@ -106,3 +106,39 @@ button {
 .task-card h3 {
   margin-top: 0;
 }
+
+.form-card {
+  margin-bottom: 24px;
+  padding: 20px;
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+}
+
+.form-card input,
+.form-card textarea {
+  display: block;
+  width: 100%;
+  margin-bottom: 10px;
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+}
+
+.project-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  padding: 16px;
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+}
+
+.form-card select,
+.form-card button {
+  display: block;
+  margin-bottom: 10px;
+  padding: 10px;
+}

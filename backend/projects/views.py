@@ -45,7 +45,7 @@ class ProjectListCreateView(generics.ListCreateAPIView):
 
         return [IsAuthenticated()]
     def perform_create(self, serializer):
-        project = serializer.save()
+        project = serializer.save(owner=self.request.user)
         project.members.add(project.owner)
 
 

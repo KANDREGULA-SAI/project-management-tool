@@ -1,6 +1,30 @@
 import { useEffect, useState } from "react";
 import { apiRequest } from "../api";
-import type { Task } from "../types";
+import type { Project, Task } from "../types";
+
+
+function getNextStatuses(
+  status: Task["status"]
+) {
+  const transitions: Record<
+    Task["status"],
+    Task["status"][]
+  > = {
+    BACKLOG: ["IN_PROGRESS"],
+    IN_PROGRESS: [
+      "IN_REVIEW",
+      "BLOCKED",
+    ],
+    IN_REVIEW: [
+      "DONE",
+      "BLOCKED",
+    ],
+    BLOCKED: [],
+    DONE: ["BACKLOG"],
+  };
+
+  return transitions[status];
+}
 
 export default function Tasks() {  
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -12,11 +36,19 @@ export default function Tasks() {
   const [status, setStatus] = useState("");
   const [priority, setPriority] = useState("");
   const [overdue, setOverdue] = useState(false);
+  const [showCreate, setShowCreate] =useState(false);
+  const [projects, setProjects] = useState<any[]>([]);
+  const [title, setTitle] = useState("");
+  const [description, setDescription] =useState("");
+  const [project, setProject] = useState("");
+  const [taskPriority, setTaskPriority] = useState("MEDIUM");
+  const [dueDate, setDueDate] = useState("");
+ 
 
   async function loadTasks() {
     setLoading(true);
     setError("");
-
+  
     try {
       const params = new URLSearchParams();
       params.set("page", page.toString());
@@ -55,19 +87,171 @@ export default function Tasks() {
     }
   }
 
+  async function loadProjects() {
+    try {
+        const data = await apiRequest("/projects/");
+        setProjects(data);
+    } catch (err) {
+        setError(
+        err instanceof Error
+            ? err.message
+            : "Failed to load projects"
+        );
+    }
+  }
+
+  async function createTask(
+    event: React.FormEvent
+    ) {
+    event.preventDefault();
+
+    try {
+        await apiRequest("/tasks/", {
+        method: "POST",
+        body: JSON.stringify({
+            project: Number(project),
+            title,
+            description,
+            priority,
+            due_date: dueDate || null,
+        }),
+        });
+
+        setTitle("");
+        setDescription("");
+        setProject("");
+        setPriority("MEDIUM");
+        setDueDate("");
+        setShowCreate(false);
+
+        await loadTasks();
+    } catch (err) {
+        setError(
+        err instanceof Error
+            ? err.message
+            : "Failed to create task"
+        );
+    }
+  }
+
+  async function transitionTask(
+    taskId: number,
+    status: Task["status"]
+    ) {
+    try {
+        await apiRequest(
+        `/tasks/${taskId}/transition/`,
+        {
+            method: "POST",
+            body: JSON.stringify({
+            status,
+            }),
+        }
+        );
+
+        await loadTasks();
+    } catch (err) {
+        setError(
+        err instanceof Error
+            ? err.message
+            : "Transition failed"
+        );
+    }
+  }
+
+
   useEffect(() => {
     loadTasks();
+    
   }, [page, status, priority, overdue]);
+
+  useEffect(() => {
+    loadProjects();
+  }, []);
 
   return (
     <div>
       <div className="page-header">
         <h1>Tasks</h1>
 
-        <button onClick={loadTasks}>
-          Search
+        <button
+            onClick={() =>
+            setShowCreate((value) => !value)
+            }
+        >
+            {showCreate ? "Cancel" : "New Task"}
         </button>
-      </div>
+        </div>
+
+        {showCreate && (
+        <form
+            className="form-card"
+            onSubmit={createTask}
+        >
+            <h3>Create Task</h3>
+
+            <select
+            value={project}
+            onChange={(e) =>
+                setProject(e.target.value)
+            }
+            required
+            >
+            <option value="">
+                Select project
+            </option>
+
+            {projects.map((item) => (
+                <option
+                key={item.id}
+                value={item.id}
+                >
+                {item.key} — {item.name}
+                </option>
+            ))}
+            </select>
+
+            <input
+            placeholder="Task title"
+            value={title}
+            onChange={(e) =>
+                setTitle(e.target.value)
+            }
+            required
+            />
+
+            <textarea
+            placeholder="Description"
+            value={description}
+            onChange={(e) =>
+                setDescription(e.target.value)
+            }
+            />
+
+            <select
+            value={priority}
+            onChange={(e) =>
+                setPriority(e.target.value)
+            }
+            >
+            <option value="LOW">Low</option>
+            <option value="MEDIUM">Medium</option>
+            <option value="HIGH">High</option>
+            </select>
+
+            <input
+            type="datetime-local"
+            value={dueDate}
+            onChange={(e) =>
+                setDueDate(e.target.value)
+            }
+            />
+
+            <button type="submit">
+            Create Task
+            </button>
+        </form>
+        )}
 
       <input
         placeholder="Search tasks..."

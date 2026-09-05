@@ -1,3 +1,4 @@
+import Projects from "./components/Projects";
 import Tasks from "./components/Tasks";
 
 import { useEffect, useState } from "react";
@@ -175,7 +176,7 @@ function App() {
           )}
 
           {view === "projects" && (
-            <h1>Projects</h1>
+            <Projects userRole={user.role} />
           )}
 
           {view === "tasks" && <Tasks />}
